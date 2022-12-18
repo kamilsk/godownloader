@@ -26,7 +26,7 @@ func processRaw(repo string, exe string, nametpl string) ([]byte, error) {
 		return nil, err
 	}
 
-	project := config.Project{}
+	project := Project{}
 	project.Release.GitHub.Owner = path.Dir(repo)
 	project.Release.GitHub.Name = path.Base(repo)
 	project.Builds = []config.Build{
