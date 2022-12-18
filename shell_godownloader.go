@@ -1,8 +1,6 @@
 package main
 
-import (
-	"fmt"
-)
+import "fmt"
 
 func processGodownloader(repo, path, filename string) ([]byte, error) {
 	cfg, err := Load(repo, path, filename)
@@ -64,10 +62,10 @@ parse_args() {
   BINDIR=${BINDIR:-./bin}
   while getopts "b:dh?x" arg; do
     case "$arg" in
-      b) BINDIR="$OPTARG" ;;
-      d) log_set_priority 10 ;;
-      h | \?) usage "$0" ;;
-      x) set -x ;;
+    b) BINDIR="$OPTARG" ;;
+    d) log_set_priority 10 ;;
+    h | \?) usage "$0" ;;
+    x) set -x ;;
     esac
   done
   shift $((OPTIND - 1))
@@ -103,12 +101,12 @@ execute() {
 get_binaries() {
   case "$PLATFORM" in
   {{- range $platform, $binaries := (platformBinaries .) }}
-    {{ $platform }}) BINARIES="{{ join $binaries " " }}" ;;
+  {{ $platform }}) BINARIES="{{ join $binaries " " }}" ;;
   {{- end }}
-    *)
-      log_crit "platform $PLATFORM is not supported.  Make sure this script is up-to-date and file request at https://github.com/${PREFIX}/issues/new"
-      exit 1
-      ;;
+  *)
+    log_crit "platform $PLATFORM is not supported. Make sure this script is up-to-date and file request at https://github.com/${PREFIX}/issues/new"
+    exit 1
+    ;;
   esac
 }
 tag_to_version() {
@@ -131,8 +129,8 @@ adjust_format() {
   {{- with .Archive.FormatOverrides }}
   case ${OS} in
   {{- range . }}
-    {{ .Goos }}) FORMAT={{ .Format }} ;;
-	{{- end }}
+  {{ .Goos }}) FORMAT={{ .Format }} ;;
+  {{- end }}
   esac
   {{- end }}
   true
@@ -142,7 +140,7 @@ adjust_os() {
   {{- with .Archive.Replacements }}
   case ${OS} in
   {{- range $k, $v := . }}
-    {{ $k }}) OS={{ $v }} ;;
+  {{ $k }}) OS={{ $v }} ;;
   {{- end }}
   esac
   {{- end }}
@@ -153,7 +151,7 @@ adjust_arch() {
   {{- with .Archive.Replacements }}
   case ${ARCH} in
   {{- range $k, $v := . }}
-    {{ $k }}) ARCH={{ $v }} ;;
+  {{ $k }}) ARCH={{ $v }} ;;
   {{- end }}
   esac
   {{- end }}
@@ -171,7 +169,7 @@ PREFIX="$OWNER/$REPO"
 
 # use in logging routines
 log_prefix() {
-	echo "$PREFIX"
+  echo "$PREFIX"
 }
 PLATFORM="${OS}/${ARCH}"
 GITHUB_DOWNLOAD=https://github.com/${OWNER}/${REPO}/releases/download
@@ -198,7 +196,6 @@ TARBALL=${NAME}.${FORMAT}
 TARBALL_URL=${GITHUB_DOWNLOAD}/${TAG}/${TARBALL}
 {{ .Checksum.NameTemplate }}
 CHECKSUM_URL=${GITHUB_DOWNLOAD}/${TAG}/${CHECKSUM}
-
 
 execute
 `
