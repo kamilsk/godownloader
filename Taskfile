@@ -1,0 +1,278 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+[ "${BASH_VERSINFO:-0}" -ge 4 ] || {
+  echo "bash version 4 or higher is required" >&2
+  exit 1
+}
+
+declare -A config
+config['branch']=extended
+config['detach']=true
+config['dryrun']=false
+config['reason']=homebrew
+config['source']=kamilsk/godownloader
+config['target']=upstream/master
+config['vendor']=github.com/goreleaser/goreleaser
+
+declare -A remotes
+remotes['origin']="git@github.com:${config['source']}.git"
+remotes['upstream']=git@github.com:goreleaser/godownloader.git
+order=(origin upstream)
+
+# How to use it
+#
+#  ```bash
+#  $ run patch
+#  $ run patch v0.1.0
+#  $ run patch -- v1.15.1
+#  $ run patch v0.1.0 -- v1.15.1
+#  $ run -d patch v0.1.0 -- v1.15.1 > bin/transaction.bash
+#  ```
+#
+function patch() {
+  local vendor=latest version
+
+  case "${#}" in
+  3)
+    version=${1}
+    vendor=${3}
+    ;;
+  2) vendor=${2} ;;
+  1) version=${1} ;;
+  esac
+
+  _ git rebase -i "${config['reason']}"
+  _ go mod edit -require="${config['vendor']}@${vendor}"
+  _ go mod tidy
+  _ git add .
+  @amend
+  _ git rebase --continue
+  release "${version:-$(@version)}"
+}
+
+# How to use it
+#
+#  ```bash
+#  $ run release
+#  $ run release v0.1.0
+#  $ run -d release v0.1.0 > bin/transaction.bash
+#  ```
+#
+function release() {
+  @setup
+  @check
+  @fetch
+  @clean
+
+  # define the release version: passed or latest,
+  # and it's commit to creating the new tag on it
+  local version=${1:-$(@version)}
+
+  # prepare release
+  local fork
+  fork=$(git merge-base --fork-point "${version}" 2>/dev/null || git rev-list -n1 "${version}")
+  _ git rebase --onto "${version}" "${config['target']}"
+  if ${config['detach']}; then
+    version=$(@increment "${version}")
+  else
+    @untag <<<"${version}"
+  fi
+  _ git tag -m "'sync with upstream'" "${version}"
+  @untag <<<"${config['reason']}"
+  _ git tag -m "'extend by ${config['reason']}'" "${config['reason']}" "${fork}"
+
+  # do release
+  for remote in $(git remote | grep -v upstream); do
+    _ git push --force-with-lease "${remote}" "${config['branch']}"
+    _ git push "${remote}" "refs/tags/${config['reason']}"
+    _ git push "${remote}" "refs/tags/${version}"
+  done
+  @publish "${version}"
+}
+
+@amend() {
+  local _ad _cd
+  _ad=$(git --no-pager log -1 --format="%aI")
+  _cd=$(git --no-pager log -1 --format="%cI")
+  _ eval GIT_COMMITTER_DATE="${_cd}" git commit --amend --date="${_ad}" --no-edit
+}
+
+@check() {
+  git diff --exit-code >/dev/null
+  git diff --cached --exit-code >/dev/null
+  git ls-files --others --exclude-standard | grep -q ^ && return 1
+  [ "$(git rev-parse --abbrev-ref HEAD)" == "${config['branch']}" ]
+  [ "${#remotes[@]}" == "${#order[@]}" ]
+}
+
+@clean() {
+  # we have to delete remote branches
+  git branch -a | grep remotes/ |
+    # except upstream' branches,
+    grep -v /upstream |
+    # the current and dependabot's
+    grep -vE /"${config['branch']}"\|/dependabot/ |
+    # clean-up and separate remote and branch names
+    sed 's|remotes/||g' |
+    sed 's|/| |' |
+    # bat -P && return | # debug pipe before deleting branches
+    @prune || true
+
+  # we have to delete useless tags
+  git tag --list |
+    # exclude valid semver tags
+    grep -v '^v[0-9]' |
+    # exclude the reason
+    grep -v "${config['reason']}" |
+    # bat -P && return | # debug pipe before deleting tags
+    @untag || true
+}
+
+@fetch() {
+  for remote in "${order[@]}"; do
+    @ git fetch "${remote}" --force --prune --tags
+  done
+}
+
+@prune() {
+  local remote branch
+  while read -r remote branch; do
+    _ git push -d "${remote}" "${branch}"
+  done
+}
+
+@setup() {
+  for remote in "${!remotes[@]}"; do
+    local url
+    url=$(git remote get-url --push "${remote}" 2>/dev/null || echo -n)
+
+    if [ -z "${url}" ]; then
+      echo "remote ${remote} not found and will be added"
+      _ git remote add "${remote}" "${remotes[$remote]}"
+    elif [ "${url}" != "${remotes[$remote]}" ]; then
+      echo "remote ${remote} (${url}) is unknown and will be replaced"
+      _ git remote set-url "${remote}" "${remotes[$remote]}"
+    fi
+  done
+
+  for remote in $(git remote); do
+    if [ -z "${remotes[$remote]-}" ]; then
+      echo "remote ${remote} ($(git remote get-url --push "${remote}")) is unknown and will be deleted"
+      _ git remote rm "${remote}"
+    fi
+  done
+}
+
+@untag() {
+  declare -A tags
+  for remote in $(git remote | grep -v upstream); do
+    tags[${remote}]=$(git ls-remote -q --tags "${remote}" | grep -v '{}' | awk -F/ '{print $3}')
+  done
+
+  local tag
+  while read -r tag; do
+    + git tag -d "${tag}"
+    for remote in $(git remote | grep -v upstream); do
+      echo "${tags[${remote}]}" | grep -q "^${tag}$" || continue
+      _ git push "${remote}" :refs/tags/"${tag}"
+    done
+  done
+}
+
+@publish() {
+  local version=${1}
+  + gh release -R "${config['source']}" delete "${version}" -y
+  _ gh release -R "${config['source']}" edit "${config['reason']}" \
+    --draft=false \
+    --notes-file CHANGES.md \
+    --prerelease
+  _ goreleaser --clean --release-notes CHANGES.md
+  _ rm -rf dist
+  _ gh release -R "${config['source']}" view "${version}" -w
+}
+
+@version() {
+  git ls-remote -q --sort=-v:refname --tags upstream |
+    grep -v '{}' |
+    head -1 |
+    awk -F/ '{print $3}'
+}
+
+@increment() {
+  local latest=${1} prefix
+  prefix=$(echo "${latest}" | awk -F. '{NF--} 1' | sed 's/ /./g')
+  git tag --list --sort=-v:refname |
+    grep "${prefix}" |
+    head -1 |
+    awk -F. '{$NF++} 1' |
+    sed 's/ /./g'
+}
+
+@installer() {
+  godownloader .goreleaser.yml >bin/install
+}
+
+@debug() { echo "${@}"; }
+@trace() { @debug "${@}" && "${@}"; }
+@error() { echo "${@}" >&2; }
+@fatal() { @error "${@}" && exit 1; }
+@usage() {
+  cat - <<EOF
+Usage: $0 <task> <args>
+Tasks:
+EOF
+  compgen -A function | grep -Ev '^(@|_)' | sort | cat -n
+}
+
+@() {
+  ${config['dryrun']} && echo "${@}"
+  "${@}"
+}
+
+_() {
+  if ${config['dryrun']}; then
+    echo "${@}"
+    return
+  fi
+  trap 'echo "${@}"' ERR
+  "${@}"
+}
+
+-() {
+  if ${config['dryrun']}; then
+    echo "${*} || false"
+    return
+  fi
+  trap 'echo "${*} || false"' ERR
+  "${@}" || false
+}
+
++() {
+  if ${config['dryrun']}; then
+    echo "${*} || true"
+    return
+  fi
+  trap 'echo "${*} || true"' ERR
+  "${@}" || true
+}
+
+function @main() {
+  for arg in "${@}"; do
+    case "${arg}" in
+    -i | --increment)
+      config['detach']=true
+      shift
+      ;;
+    -d | --dry-run)
+      config['dryrun']=true
+      shift
+      ;;
+    *) break ;;
+    esac
+  done
+  "${@:-@usage}"
+}
+
+@main "${@}"
