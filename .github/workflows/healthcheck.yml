@@ -1,0 +1,36 @@
+name: healthcheck
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 7 * * 1' # https://crontab.guru/#0_7_%2A_%2A_1, CET==UTC+1
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with: { fetch-depth: 0 }
+
+      - run: |
+          curl -sSfL https://install.octolab.org/kamilsk/godownloader |
+          sh -s -- -b /usr/local/bin
+      - run: |
+          tag=$(git describe --tags | rev | cut -d - -f3- | rev)
+          ver="v$(godownloader --version 2>&1 | awk -F, '{print $1}')"
+          [ "${tag}" == "${ver}" ] || exit 1
+
+  notify:
+    runs-on: ubuntu-latest
+    if: failure() || success()
+    needs: [ install ]
+
+    steps:
+      - uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_COLOR: ${{ contains(needs.*.result, 'failure') && 'failure' || 'success' }}
+          SLACK_ICON: https://github.com/github.png?size=64
+          SLACK_TITLE: '🚀 ${{ github.repository }}: ${{ github.workflow }}'
+          SLACK_USERNAME: GitHub Actions
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
