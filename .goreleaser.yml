@@ -1,33 +1,54 @@
-# This is an example goreleaser.yaml file with some sane defaults.
-# Make sure to check the documentation at http://goreleaser.com
-before:
-  hooks:
-    # you may remove this if you don't use vgo
-    - go mod tidy
-    # you may remove this if you don't need go generate
-    - go generate ./...
-builds:
-- env:
-  - CGO_ENABLED=0
-  goos:
-  - linux
-  - darwin
-  goarch:
-  - amd64
+project_name: godownloader
+
 archives:
-- replacements:
-    darwin: Darwin
-    linux: Linux
-    windows: Windows
-    386: i386
-    amd64: x86_64
-checksum:
-  name_template: 'checksums.txt'
-snapshot:
-  name_template: "{{ .Tag }}-next"
-changelog:
-  sort: asc
-  filters:
-    exclude:
-    - '^docs:'
-    - '^test:'
+  - id: godownloader
+    files:
+      - LICENSE
+      - LICENSE.md
+    format: tar.gz
+    name_template: "{{.Binary}}_{{.Version}}_{{.Os}}-{{.Arch}}"
+
+brews:
+  - name: godownloader
+    caveats: ''
+    commit_author:
+      name: Kamil Samigullin
+      email: kamil@samigullin.info
+    description: |
+      This is the inverse of goreleaser. The goreleaser YAML file is read and
+      creates a custom shell script that can download the right package and
+      the right version for the existing machine.
+    folder: Formula
+    homepage: https://github.com/kamilsk/godownloader
+    repository:
+      owner: kamilsk
+      name: homebrew-tap
+    install: |
+      bin.install "godownloader"
+      prefix.install_metafiles
+    test: |
+      system "#{bin}/godownloader --version"
+
+builds:
+  - id: godownloader
+    binary: godownloader
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    goarch:
+      - amd64
+      - arm64
+    goos:
+      - darwin
+      - linux
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+    main: .
+
+checksum: { name_template: checksums.txt }
+
+release:
+  github:
+    owner: kamilsk
+    name: godownloader
