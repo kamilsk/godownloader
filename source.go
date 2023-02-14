@@ -1,8 +1,6 @@
 package main
 
-import (
-	"fmt"
-)
+import "fmt"
 
 // ugh, needs to be turned into a config
 func processSource(source, repo, path, file, exe, nametpl string) (out []byte, err error) {
