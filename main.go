@@ -86,6 +86,32 @@ func makePlatformBinaries(cfg *Project) map[string][]string {
 				}
 			}
 		}
+		for _, target := range build.Targets {
+			target := target
+			parts := strings.Split(target, "_")
+			if len(parts) < 2 {
+				continue
+			}
+
+			goos := parts[0]
+			goarch := parts[1]
+			var goarm string
+			if strings.HasPrefix(goarch, "arm") && len(parts) > 2 {
+				goarm = parts[2]
+			}
+			switch goarch {
+			case "arm":
+				platform := makePlatform(goos, goarch, goarm)
+				if !ignore[platform] {
+					platformBinaries[platform] = []string{build.Binary}
+				}
+			default:
+				platform := makePlatform(goos, goarch, "")
+				if !ignore[platform] {
+					platformBinaries[platform] = []string{build.Binary}
+				}
+			}
+		}
 	}
 	return platformBinaries
 }
@@ -114,7 +140,7 @@ func makeName(prefix, target string) (string, error) {
 	if strings.Contains(target, "{{ if") ||
 		strings.Contains(target, "{{if") {
 		//nolint: lll
-		log.Warnf("It contains a conditional, we can't (easily) translate that to bash. name_template %q contains unknown conditional or ARM format.", target)
+		log.Warnf("!!Warnning!!->It contains a conditional, we can't (easily) translate that to bash. name_template %q contains unknown conditional or ARM format.", target)
 	}
 
 	varmap := map[string]string{
@@ -124,6 +150,7 @@ func makeName(prefix, target string) (string, error) {
 		"Tag":         "${TAG}",
 		"Binary":      "${BINARY}",
 		"ProjectName": "${PROJECT_NAME}",
+		"Amd64":       "",
 	}
 
 	out := bytes.Buffer{}
