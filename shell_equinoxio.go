@@ -13,7 +13,7 @@ func processEquinoxio(repo string) ([]byte, error) {
 	if repo == "" {
 		return nil, fmt.Errorf("must have repo")
 	}
-	project := config.Project{}
+	project := Project{}
 	project.Release.GitHub.Owner = path.Dir(repo)
 	project.Release.GitHub.Name = path.Base(repo)
 	project.Builds = []config.Build{
