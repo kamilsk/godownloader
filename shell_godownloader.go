@@ -81,7 +81,7 @@ execute() {
   http_download "${tmpdir}/${TARBALL}" "${TARBALL_URL}"
   http_download "${tmpdir}/${CHECKSUM}" "${CHECKSUM_URL}"
   hash_sha256_verify "${tmpdir}/${TARBALL}" "${tmpdir}/${CHECKSUM}"
-  {{- if .Archive.WrapInDirectory }}
+  {{- if eq .Archive.WrapInDirectory "true" }}
   srcdir="${tmpdir}/${NAME}"
   rm -rf "${srcdir}"
   {{- else }}
