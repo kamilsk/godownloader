@@ -3,14 +3,13 @@ package main
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/apex/log"
 	"github.com/client9/codegen/shell"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 // TreeConfig is the project configuration
@@ -41,11 +40,11 @@ func LoadTreeConfig(file string) (config TreeConfig, err error) {
 
 // LoadTreeConfigReader config via io.Reader
 func LoadTreeConfigReader(fd io.Reader) (config TreeConfig, err error) {
-	data, err := ioutil.ReadAll(fd)
+	data, err := io.ReadAll(fd)
 	if err != nil {
 		return config, err
 	}
-	err = yaml.UnmarshalStrict(data, &config)
+	err = yaml.Unmarshal(data, &config)
 	log.WithField("config", config).Debug("loaded config file")
 	return config, err
 }
@@ -104,7 +103,7 @@ func treewalk(root string, treeout string, forceWrite bool) error { // nolint: g
 		}
 
 		var conf repoConf
-		bts, err := ioutil.ReadFile(path)
+		bts, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
@@ -152,7 +151,7 @@ func treewalk(root string, treeout string, forceWrite bool) error { // nolint: g
 		// only write out if forced to, OR if output is effectively different
 		// than what the file has.
 		if forceWrite || shell.ShouldWriteFile(shellpath, shellcode) {
-			if err = ioutil.WriteFile(shellpath, shellcode, 0644); err != nil {
+			if err = os.WriteFile(shellpath, shellcode, 0644); err != nil {
 				return err
 			}
 		}
