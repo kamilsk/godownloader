@@ -109,11 +109,11 @@ func makeName(prefix, target string) (string, error) {
 	target = strings.Replace(target, "{{ .Arm }}", "{{ .Arch }}", -1)
 
 	// otherwise if it contains a conditional, we can't (easily)
-	// translate that to bash.  Ask for bug report.
+	// translate that to bash. Ask for bug report.
 	if strings.Contains(target, "{{ if") ||
 		strings.Contains(target, "{{if") {
 		//nolint: lll
-		log.Warnf("It contains a conditional, we can't (easily) translate that to bash. name_template %q contains unknown conditional or ARM format.", target)
+		log.Warnf("⚠️ It contains a conditional, we can't (easily) translate that to bash. name_template %q contains unknown conditional or ARM format.", target)
 	}
 
 	varmap := map[string]string{
