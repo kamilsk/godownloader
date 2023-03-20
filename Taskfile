@@ -24,11 +24,11 @@ order=(origin upstream)
 # How to use it
 #
 #  ```bash
-#  $ run -i patch
-#  $ run -i patch v0.1.0
-#  $ run -i patch -- v1.15.1
-#  $ run -i patch v0.1.0 -- v1.15.1
-#  $ run -d -i patch v0.1.0 -- v1.15.1 > bin/transaction.bash
+#  $ run patch
+#  $ run patch v0.1.0
+#  $ run patch -- v1.15.1
+#  $ run patch v0.1.0 -- v1.15.1
+#  $ run -d patch v0.1.0 -- v1.15.1 > bin/transaction.bash
 #  ```
 #
 function patch() {
@@ -55,9 +55,9 @@ function patch() {
 # How to use it
 #
 #  ```bash
-#  $ run --increment release
-#  $ run --increment release v0.1.0
-#  $ run -d --increment release v0.1.0 > bin/transaction.bash
+#  $ run release
+#  $ run release v0.1.0
+#  $ run -d release v0.1.0 > bin/transaction.bash
 #  ```
 #
 function release() {
@@ -132,7 +132,7 @@ function release() {
 
 @fetch() {
   for remote in "${order[@]}"; do
-    _ git fetch "${remote}" --force --prune --tags
+    @ git fetch "${remote}" --force --prune --tags
   done
 }
 
@@ -221,6 +221,11 @@ Usage: $0 <task> <args>
 Tasks:
 EOF
   compgen -A function | grep -Ev '^(@|_)' | sort | cat -n
+}
+
+@() {
+  ${config['dryrun']} && echo "${@}"
+  "${@}"
 }
 
 _() {
