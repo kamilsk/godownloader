@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
@@ -11,6 +10,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/cli"
 	"github.com/client9/codegen/shell"
@@ -18,7 +18,6 @@ import (
 	"github.com/goreleaser/goreleaser/pkg/context"
 	"github.com/goreleaser/goreleaser/pkg/defaults"
 	"github.com/pkg/errors"
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 // nolint: gochecknoglobals
@@ -112,7 +111,7 @@ func makeName(prefix, target string) (string, error) {
 	// translate that to bash. Ask for bug report.
 	if strings.Contains(target, "{{ if") ||
 		strings.Contains(target, "{{if") {
-		//nolint: lll
+		// nolint: lll
 		log.Warnf("⚠️ It contains a conditional, we can't (easily) translate that to bash. name_template %q contains unknown conditional or ARM format.", target)
 	}
 
@@ -181,6 +180,9 @@ func loadURL(file string) (*Project, error) {
 		return nil, nil
 	}
 	p, err := config.LoadReader(resp.Body)
+	if err != nil {
+		return nil, err
+	}
 
 	// dirty hack, based on knowledge of template
 	// see https://github.com/octomation/go-tool/blob/84688c88ae35e07d368ae86fd9c8f564444045be/.goreleaser.yml#L4-L14
@@ -200,6 +202,9 @@ func loadURL(file string) (*Project, error) {
 
 func loadFile(file string) (*Project, error) {
 	p, err := config.Load(file)
+	if err != nil {
+		return nil, err
+	}
 
 	// dirty hack, based on knowledge of template
 	// see https://github.com/octomation/go-tool/blob/84688c88ae35e07d368ae86fd9c8f564444045be/.goreleaser.yml#L4-L14
@@ -311,7 +316,7 @@ func main() {
 	// only write out if forced to, OR if output is effectively different
 	// than what the file has.
 	if *force || shell.ShouldWriteFile(*output, out) {
-		if err = ioutil.WriteFile(*output, out, 0666); err != nil {
+		if err = os.WriteFile(*output, out, 0666); err != nil {
 			log.WithError(err).Errorf("unable to write to %s", *output)
 			os.Exit(1)
 		}
